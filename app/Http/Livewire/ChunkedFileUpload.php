@@ -16,7 +16,7 @@ class ChunkedFileUpload extends Component
     public $chunkSize = 1000000; // 1M
     public $fileChunk;
 
-    // Final file 
+    // Final file
     public $fileName;
     public $fileSize;
     public $finalFile;
@@ -34,8 +34,7 @@ class ChunkedFileUpload extends Component
         fclose($final);
         unlink($tmpPath);
         $curSize = Storage::size('/livewire-tmp/'.$this->fileName);
-
-        Log::info('expected file size is '.$this->fileSize.' current merged size is: '.$curSize);
+        
         if( $curSize == $this->fileSize ){
             $this->finalFile = TemporaryUploadedFile::createFromLivewire('/'.$this->fileName);
         }
