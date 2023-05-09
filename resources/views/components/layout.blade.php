@@ -5,11 +5,12 @@
 
         <title>{{ $title }}</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-       
+
         @livewireStyles
     </head>
     <body class="flex items-center justify-center min-h-screen">
         {{ $slot }}
         @livewireScripts
+        @stack('scripts')
     </body>
 </html>

@@ -1,5 +1,5 @@
 <x-layout>
-    <x-slot:title>
+    <x-slot name="title">
         Uploads
     </x-slot>
 
