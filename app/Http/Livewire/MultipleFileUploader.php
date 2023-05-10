@@ -7,7 +7,6 @@ use Livewire\WithFileUploads;
 use Livewire\TemporaryUploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use League\Flysystem\MountManager;
 
 class MultipleFileUploader extends Component
 {
@@ -34,6 +33,9 @@ class MultipleFileUploader extends Component
     // @array Map of file uploads to their temporary index
     public $fileUploadIdx = [];
 
+    // @var int Upload max limit
+    public $uploadMaxLimit = 2;
+
     // protected $rules = [
     //     'uploads.*' => 'image|max:10240',
     // ];
@@ -45,8 +47,6 @@ class MultipleFileUploader extends Component
 
         // Master files XXX Get saved data from DB
         $this->files = [];
-
-        // $this->addError('uploads.*', "最大x個までアップロードできます。");
     }
 
     /**
@@ -79,6 +79,22 @@ class MultipleFileUploader extends Component
     }
 
     /**
+     * Can upload more files
+     *
+     * @param integer $count
+     * @return boolean
+     */
+    public function canUploadMoreFiles(int $count)
+    {
+        $this->resetValidation();
+        if (count($this->files) + $count > $this->uploadMaxLimit) {
+            $this->addError('uploads.*', "最大{$this->uploadMaxLimit}個までアップロードできます。");
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Delete file from files array
      *
      * @param integer $value
@@ -99,21 +115,21 @@ class MultipleFileUploader extends Component
     public function updatedUploads($value, $key)
     {
         Log::debug($key);
-        Log::debug($value);
 
         list($index, $attribute) = explode('.', $key);
         $index = intval($index);
         $fileIndex = $this->fileUploadIdx[$index];
+        $livewireTmp = '/livewire-tmp/';
 
         //  Upload file chunk
         if ($attribute == 'fileChunk') {
             // Final file name for file merge
             $fileName = $this->files[$fileIndex]['finalName'];
-            $finalPath = Storage::path('/livewire-tmp/' . $fileName);
+            $finalPath = Storage::path($livewireTmp . $fileName);
 
             // Chunk file
             $chunkName = $this->uploads[$index]['fileChunk']->getFileName();
-            $chunkPath = Storage::path('/livewire-tmp/' . $chunkName);
+            $chunkPath = Storage::path($livewireTmp . $chunkName);
 
             // Check if chunk exists
             if (!file_exists($chunkPath)) {
@@ -130,7 +146,7 @@ class MultipleFileUploader extends Component
             unlink($chunkPath);
 
             // Progress
-            $curSize = Storage::size('/livewire-tmp/' . $fileName);
+            $curSize = Storage::size($livewireTmp . $fileName);
             $this->files[$fileIndex]['progress'] =
                 $curSize / $this->files[$fileIndex]['fileSize'] * 100;
 

@@ -1,29 +1,22 @@
 <div>
-    <div wire:ignore>
+    <p>{{ now() }}</p>
+    
+    <div>
         <input type="file" id="myFiles" multiple wire:loading.attr="disabled">
         <button type="button" id="myButton" wire:click="$refresh">Refresh</button>
+
+        @error('uploads.*') <div class="error text-red-600">{{ $message }}</div> @enderror
+
+        <p>{{ now() }}</p>
     </div>
-
-    {{-- @error('uploads.*') <div class="error">{{ $message }}</div> @enderror --}}
-
-    <p>{{ now() }}</p>
-
-    {{-- @foreach ($uploads as $i => $upl)
-        <div class="mt-2 bg-blue-50 rounded-full pt-2 pr-4 pl-4 pb-2">
-            <label class="flow-root">
-                <div class="float-left">{{ $upl['fileName'] }} / {{ $upl['fileSize'] }}</div>
-                <div class="float-right">{{ floor($upl['progress']) }}%</div>
-            </label>
-            <progress max="100" wire:model="uploads.{{ $i }}.progress"
-                class="h-1 w-full bg-neutral-200 dark:bg-neutral-60" />
-        </div>
-    @endforeach --}}
 
     @forelse ($files as $i => $file)
         <div wire:key="{{ $i }}">
-            {{-- {{ print_r(compact('file')); }} --}}
-            <p>{{ $i }}</p>
-            @if(isset($file['fileRef']))
+            <p>ID: {{ $i }} {{ floor($file['progress']) }}% {{ now() }}</p>
+            <p>
+                File: {{ $file['fileName'] }} ({{ number_format($file['fileSize'] / 1024, 2) . ' KB'; }})
+            </p>
+            @if (isset($file['fileRef']))
                 <img src="{{ $file['fileRef']->temporaryUrl() }}" width="100" />
             @endif
             <button type="button" wire:click="deleteFile({{ $i }})">削除</button>
@@ -33,11 +26,17 @@
 
     @push('scripts')
     <script type="module">
+        // Select the file input
         const filesSelector = document.querySelector('#myFiles');
+
+        // Upload file list
         let fileList;
+
+        // Chunk starts
         let chnkStarts = [];
+
+        // Completed file list
         let completedFileList = 0;
-        //let isActive = false;
 
         /**
          * Change event handler
@@ -45,21 +44,42 @@
          */
         const change = event => {
             fileList = [...filesSelector.files];
-            console.log(fileList);
+            // console.log(fileList);
+            console.log(fileList.length);
 
-            fileList.forEach((file, index) => {
-                @this.call('setFileDetails', index, file.name, file.size);
-                chnkStarts[index] = 0;
-                livewireUploadChunk(index, file);
+            // Check if we can upload more files
+            @this.call('canUploadMoreFiles', fileList.length).then(success => {
+                console.log(success);
+                if (success) {
+                    fileList.forEach((file, index) => {
+                        // Set file details
+                        @this.call('setFileDetails', index, file.name, file.size);
+
+                        // Reset chunk start
+                        chnkStarts[index] = 0;
+
+                        // Start uploading
+                        livewireUploadChunk(index, file);
+                    });
+                } else {
+                    filesSelector.value = '';
+                }
             });
         }
 
         // Add event listener
         filesSelector.addEventListener('change', change);
 
+        /**
+         * Uploads a chunk of a file
+         * @param {number} index
+         * @param {File} file
+         */
         const livewireUploadChunk = (index, file) => {
             // End of chunk is start + chunkSize OR file size, whichever is greater
             const chunkEnd = Math.min(chnkStarts[index] + @js($chunkSize), file.size);
+
+            // Slice the file into a chunk
             const chunk = file.slice(chnkStarts[index], chunkEnd);
             console.log('chunkStart: ' + index + ' / ' + chnkStarts[index] + ' / ' + chunkEnd + ' file.size: ' + file.size);
 
@@ -81,20 +101,21 @@
                 completedFileList ++;
             }, (e) => {
                 // Progress callback is called multiple times while the file is being uploaded
-                if (e.detail.progress == 100) {
+                if (e.detail.progress >= 100) {
+                    // Calculate next chunk start
                     chnkStarts[index] = Math.min(chnkStarts[index] + @js($chunkSize), file.size);
 
-                    // Incomplete
+                    // Retry upload chunk file
                     if (chnkStarts[index] < file.size) {
-                        let _time = Math.floor((Math.random() * 2000) + 1);
+                        // let _time = Math.floor((Math.random() * 2000) + 1);
                         console.log('retryChunk: ' + chnkStarts[index] + '<' + file.size);
-                        setTimeout(livewireUploadChunk, _time, index, file);
-                    }
-                    // Completed
-                    else {
+                        setTimeout(livewireUploadChunk, 1000, index, file);
+                    } else {
+                        // Increment completed file list
                         completedFileList ++;
                         console.log('completedFileList: ' + fileList.length + ' / ' + completedFileList);
 
+                        // Finally completed
                         if (fileList.length == completedFileList) {
                             console.log('All files uploaded successfully.');
                             filesSelector.value = '';
@@ -104,6 +125,7 @@
                 }
             });
         }
+
     </script>
     @endpush
 </div>
