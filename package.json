@@ -17,6 +17,7 @@
     "dependencies": {
         "papaparse": "^5.4.1",
         "requirejs": "^2.3.6",
+        "sortablejs": "^1.15.0",
         "xlstream": "^2.5.3"
     }
 }

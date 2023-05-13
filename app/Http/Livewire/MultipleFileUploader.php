@@ -19,7 +19,7 @@ class MultipleFileUploader extends Component
     public $files = [];
 
     // @var int Upload file chunk size
-    public $chunkSize = 1024 * 1000 * 0.5;
+    public $chunkSize = 1024 * 1000 * 0.1;
 
     // @var int Upload files max count
     public $uploadsMaxCount = 0;
@@ -34,7 +34,7 @@ class MultipleFileUploader extends Component
     public $fileUploadIdx = [];
 
     // @var int Upload max limit
-    public $uploadMaxLimit = 2;
+    public $uploadMaxLimit = 10;
 
     // protected $rules = [
     //     'uploads.*' => 'image|max:10240',
@@ -64,12 +64,18 @@ class MultipleFileUploader extends Component
         $fileIndex = $this->fileUploadIdx[$index];
 
         // Set file details
-        $this->files[$fileIndex]['finalName'] = md5(uniqid(rand(), true));
-        $this->files[$fileIndex]['fileName'] = $fileName;
-        $this->files[$fileIndex]['fileSize'] = $fileSize;
-        $this->files[$fileIndex]['fileChunk'] = null;
-        $this->files[$fileIndex]['progress'] = 0;
-        $this->files[$fileIndex]['fileRef'] = null;
+        $file = [
+            'id' => $fileIndex,
+            'fileName' => md5(uniqid(rand(), true)),
+            'originalFileName' => $fileName,
+            'fileSize' => $fileSize,
+            'fileChunk' => null,
+            'progress' => 0,
+            'fileRef' => null,
+        ];
+
+        // array_unshift($this->files, $file);
+        array_push($this->files, $file);
 
         // Master file count increment
         $this->filesCount++;
@@ -78,14 +84,34 @@ class MultipleFileUploader extends Component
         $this->uploadsMaxCount++;
     }
 
+    public function setUpdateFileDetails($index, $fileName, $fileSize, $fileId)
+    {
+        // Make a map of file uploads to their temporary index
+        $this->fileUploadIdx[$index] = $fileId;
+        $fileIndex = $this->fileUploadIdx[$index];
+
+        // Set file details
+        $this->files[$fileIndex] = [
+            'id' => $fileIndex,
+            'fileName' => md5(uniqid(rand(), true)),
+            'originalFileName' => $fileName,
+            'fileSize' => $fileSize,
+            'fileChunk' => null,
+            'progress' => 0,
+            'fileRef' => null,
+        ];
+    }
+
     /**
      * Can upload more files
      *
      * @param integer $count
      * @return boolean
      */
-    public function canUploadMoreFiles(int $count)
+    public function resetUploadFiles(int $count)
     {
+        $this->uploads = [];
+        $this->uploadsCount = 0;
         $this->resetValidation();
         if (count($this->files) + $count > $this->uploadMaxLimit) {
             $this->addError('uploads.*', "最大{$this->uploadMaxLimit}個までアップロードできます。");
@@ -102,7 +128,25 @@ class MultipleFileUploader extends Component
      */
     public function deleteFile(int $value)
     {
-        unset($this->files[$value]);
+        // unset($this->files[$value]);
+        // $this->filesCount--;
+        $fileIndex = array_search($value, array_column($this->files, 'id'), true);
+        // dd($this->files, $fileIndex);
+        unset($this->files[$fileIndex]);
+        $this->files = array_values($this->files);
+    }
+
+    /**
+     * Reorder files
+     *
+     * @param array $orderedIds
+     * @return void
+     */
+    public function reorderFiles($orderedIds)
+    {
+        $this->files = collect($orderedIds)->map(function ($id) {
+            return collect($this->files)->where('id', (int) $id)->first();
+        })->toArray();
     }
 
     /**
@@ -118,13 +162,17 @@ class MultipleFileUploader extends Component
 
         list($index, $attribute) = explode('.', $key);
         $index = intval($index);
-        $fileIndex = $this->fileUploadIdx[$index];
+        $fileId = $this->fileUploadIdx[$index];
         $livewireTmp = '/livewire-tmp/';
 
         //  Upload file chunk
         if ($attribute == 'fileChunk') {
-            // Final file name for file merge
-            $fileName = $this->files[$fileIndex]['finalName'];
+            // Get file detail from id
+            $fileIndex = array_search($fileId, array_column($this->files, 'id'), true);
+            $file = $this->files[$fileIndex];
+
+            // File name for file merge
+            $fileName = $file['fileName'];
             $finalPath = Storage::path($livewireTmp . $fileName);
 
             // Chunk file
@@ -147,24 +195,22 @@ class MultipleFileUploader extends Component
 
             // Progress
             $curSize = Storage::size($livewireTmp . $fileName);
-            $this->files[$fileIndex]['progress'] =
-                $curSize / $this->files[$fileIndex]['fileSize'] * 100;
+            $this->files[$fileIndex]['progress'] = $curSize / $file['fileSize'] * 100;
 
             // Upload Complete
             if ($this->files[$fileIndex]['progress'] >= 100) {
-                $this->files[$fileIndex]['fileRef'] =
-                    TemporaryUploadedFile::createFromLivewire('/' . $fileName);
+                $this->files[$fileIndex]['fileRef'] = TemporaryUploadedFile::createFromLivewire('/' . $fileName);
 
                 // Temporary file count increment
                 $this->uploadsCount++;
                 Log::debug($this->uploadsMaxCount . ' / ' . $this->uploadsCount);
 
                 // Reset if max count reached
-                if ($this->uploadsMaxCount <= $this->uploadsCount) {
-                    Log::debug('reset');
-                    $this->uploads = [];
-                    $this->uploadsCount = 0;
-                }
+                // if ($this->uploadsMaxCount <= $this->uploadsCount) {
+                //     Log::debug('reset');
+                //     $this->uploads = [];
+                //     $this->uploadsCount = 0;
+                // }
             }
         }
     }

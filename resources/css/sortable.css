@@ -1,0 +1,33 @@
+.list {
+    background: #4286f4;
+    width: 500px;
+    padding: 1rem;
+}
+
+.list-hidden {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+}
+
+.ghost {
+    opacity: .4;
+}
+
+.list-item {
+    background: #8bb3f4;
+    padding: 0.5rem;
+    border: 1px solid white;
+    margin: 1px 0;
+}
+
+.list-item:hover {
+    cursor: move;
+}
+
+.placeholder {
+    display: none;
+    background: #303742;
+    pointer-events: none;
+}
+
