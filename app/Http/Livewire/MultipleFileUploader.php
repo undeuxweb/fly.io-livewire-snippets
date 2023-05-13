@@ -88,11 +88,11 @@ class MultipleFileUploader extends Component
     {
         // Make a map of file uploads to their temporary index
         $this->fileUploadIdx[$index] = $fileId;
-        $fileIndex = $this->fileUploadIdx[$index];
+        $fileIndex = array_search($fileId, array_column($this->files, 'id'));
 
         // Set file details
         $this->files[$fileIndex] = [
-            'id' => $fileIndex,
+            'id' => $fileId,
             'fileName' => md5(uniqid(rand(), true)),
             'originalFileName' => $fileName,
             'fileSize' => $fileSize,
@@ -126,12 +126,9 @@ class MultipleFileUploader extends Component
      * @param integer $value
      * @return void
      */
-    public function deleteFile(int $value)
+    public function deleteFile(int $fileId)
     {
-        // unset($this->files[$value]);
-        // $this->filesCount--;
-        $fileIndex = array_search($value, array_column($this->files, 'id'), true);
-        // dd($this->files, $fileIndex);
+        $fileIndex = array_search($fileId, array_column($this->files, 'id'));
         unset($this->files[$fileIndex]);
         $this->files = array_values($this->files);
     }
@@ -168,7 +165,7 @@ class MultipleFileUploader extends Component
         //  Upload file chunk
         if ($attribute == 'fileChunk') {
             // Get file detail from id
-            $fileIndex = array_search($fileId, array_column($this->files, 'id'), true);
+            $fileIndex = array_search($fileId, array_column($this->files, 'id'));
             $file = $this->files[$fileIndex];
 
             // File name for file merge
